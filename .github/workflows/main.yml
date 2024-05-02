@@ -1,27 +1,29 @@
-name: Deploy to DockerHub
+name: Continuous Deployment to AWS EC2
 
 on:
-  pull_request:
-    branches: [ main ]
+  push:
+    branches:
+      - develop
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.8
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-        repository: myusername/myrepository
-        push: true
-        tags: latest
+    - name: Set up SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H 144.27.365 >> ~/.ssh/known_hosts
 
-
+    - name: Build and Push Docker image
+      run: |
+        ssh -o StrictHostKeyChecking=no ubuntu@your.ec2.public.ip.address "
+          docker pull gabo/myapp:latest 
+          docker stop myapp || true
+          docker rm myapp || true
+          docker run -d --name myapp -p 8000:8000 gabo/myapp:latest
+        "
